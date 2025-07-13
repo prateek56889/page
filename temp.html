@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permission Management System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Dialog overlay styles */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .dialog-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .dialog-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1); /* shadow-lg */
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .dialog-overlay.active .dialog-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+
+    <!-- Main User Page Section -->
+    <div class="container mx-auto bg-white p-6 rounded-xl shadow-lg">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">User Management</h1>
+            <button id="createUserBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                Create User +
+            </button>
+        </div>
+
+        <!-- User Table -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
+                <thead class="bg-gray-100 border-b border-gray-200">
+                    <tr>
+                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Name of User</th>
+                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Email</th>
+                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Designation</th>
+                        <th class="py-3 px-4 text-left text-sm font-medium text-gray-600 uppercase tracking-wider">Edit Option</th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody" class="divide-y divide-gray-200">
+                    <!-- Sample Users (will be populated by JS) -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create User Dialog Box -->
+    <div id="createUserDialog" class="dialog-overlay">
+        <div class="dialog-content w-full md:w-2/3 lg:w-1/2">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Create New User</h2>
+            <form id="createUserForm" class="space-y-4">
+                <div>
+                    <label for="userName" class="block text-sm font-medium text-gray-700 mb-1">Enter your name</label>
+                    <input type="text" id="userName" name="userName" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="John Doe" required>
+                </div>
+                <div>
+                    <label for="userEmail" class="block text-sm font-medium text-gray-700 mb-1">Enter your email</label>
+                    <input type="email" id="userEmail" name="userEmail" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="john.doe@example.com" required>
+                </div>
+                <div>
+                    <label for="userDesignation" class="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                    <input type="text" id="userDesignation" name="userDesignation" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Software Engineer" required>
+                </div>
+                <div>
+                    <label for="userType" class="block text-sm font-medium text-gray-700 mb-1">Select user type</label>
+                    <select id="userType" name="userType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="">-- Select --</option>
+                        <option value="Admin">Admin</option>
+                        <option value="UserManager">User Manager</option>
+                        <option value="RestOfUsers" disabled>Rest of the users can be added (Future)</option>
+                    </select>
+                </div>
+
+                <!-- Permission Assignment Section (initially hidden) -->
+                <div id="permissionSettings" class="space-y-6 border-t border-gray-200 pt-6 mt-6 hidden">
+                    <h3 class="text-xl font-semibold text-gray-800">Assign Permissions</h3>
+
+                    <!-- User Management Settings -->
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-700 mb-3">User Management Settings</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="permission" value="user_create" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                <span class="text-gray-700">Create</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="permission" value="user_read" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                <span class="text-gray-700">Read</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="permission" value="user_update" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                <span class="text-gray-700">Update</span>
+                            </label>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" name="permission" value="user_delete" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                                <span class="text-gray-700">Delete</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- General Settings -->
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-700 mb-3">General Settings</h4>
+                        <label for="generalSettingType" class="block text-sm font-medium text-gray-700 mb-1">Select General Setting</label>
+                        <select id="generalSettingType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Select --</option>
+                            <option value="apiConfig">Edit API Configuration settings</option>
+                            <!-- Add more general settings here if needed -->
+                        </select>
+
+                        <div id="apiConfigSection" class="mt-4 p-4 border border-gray-200 rounded-md shadow-sm hidden">
+                            <h5 class="text-md font-medium text-gray-700 mb-3">API Configuration</h5>
+                            <div>
+                                <label for="apiName" class="block text-sm font-medium text-gray-700 mb-1">Name of API</label>
+                                <input type="text" id="apiName" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Salesforce API">
+                            </div>
+                            <label for="loginType" class="block text-sm font-medium text-gray-700 mb-1 mt-3">Login Type</label>
+                            <select id="loginType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3">
+                                <option value="">-- Select --</option>
+                                <option value="API">API</option>
+                                <option value="UsernamePassword">Username and Password</option>
+                            </select>
+
+                            <div id="apiKeySection" class="hidden">
+                                <label for="apiKey" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" id="apiKey" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter API Key">
+                                    <button type="button" id="verifyApiKeyBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Verify</button>
+                                </div>
+                                <p id="apiKeyStatus" class="mt-2 text-sm font-medium"></p>
+                            </div>
+
+                            <div id="usernamePasswordSection" class="hidden">
+                                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                <input type="text" id="username" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3" placeholder="Enter Username">
+                                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <input type="password" id="password" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter Password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Knowledge Base Settings -->
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-700 mb-3">Knowledge Base Settings</h4>
+                        <label for="knowledgeBaseSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Knowledge Base</label>
+                        <select id="knowledgeBaseSelect" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">-- Select --</option>
+                            <option value="Github">Github</option>
+                            <option value="Gitlab">Gitlab</option>
+                            <option value="Bitbucket">Bitbucket</option>
+                        </select>
+
+                        <div id="knowledgeBaseDetails" class="mt-4 p-4 border border-gray-200 rounded-md shadow-sm hidden">
+                            <h5 class="text-md font-medium text-gray-700 mb-3">Knowledge Base Configuration</h5>
+                            <div>
+                                <label for="kbUrl" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                                <input type="url" id="kbUrl" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., https://api.github.com">
+                            </div>
+                            <label for="kbAuthType" class="block text-sm font-medium text-gray-700 mb-1 mt-3">Authentication Type</label>
+                            <select id="kbAuthType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3">
+                                <option value="">-- Select --</option>
+                                <option value="APIToken">API Token</option>
+                                <option value="UsernamePassword">Username and Password</option>
+                            </select>
+
+                            <div id="kbApiTokenSection" class="hidden">
+                                <label for="kbApiToken" class="block text-sm font-medium text-gray-700 mb-1">API Token</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" id="kbApiToken" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter API Token">
+                                    <button type="button" id="verifyKbTokenBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Verify</button>
+                                </div>
+                                <p id="kbTokenStatus" class="mt-2 text-sm font-medium"></p>
+                            </div>
+
+                            <div id="kbUsernamePasswordSection" class="hidden">
+                                <label for="kbUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                <input type="text" id="kbUsername" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3" placeholder="Enter Username">
+                                <label for="kbPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <input type="password" id="kbPassword" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter Password">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancelCreateUserBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                        Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Permissions Dialog Box -->
+    <div id="editUserDialog" class="dialog-overlay">
+        <div class="dialog-content w-full md:w-2/3 lg:w-1/2">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Edit Permissions for <span id="editingUserName" class="text-blue-600"></span></h2>
+            <form id="editUserForm" class="space-y-4">
+                <!-- User Management Settings -->
+                <div>
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">User Management Settings</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="edit_permission" value="user_create" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                            <span class="text-gray-700">Create</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="edit_permission" value="user_read" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                            <span class="text-gray-700">Read</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="edit_permission" value="user_update" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                            <span class="text-gray-700">Update</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="edit_permission" value="user_delete" class="form-checkbox h-5 w-5 text-blue-600 rounded">
+                            <span class="text-gray-700">Delete</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- General Settings (similar to create user, but for editing) -->
+                <div>
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">General Settings</h4>
+                    <label for="editGeneralSettingType" class="block text-sm font-medium text-gray-700 mb-1">Select General Setting</label>
+                    <select id="editGeneralSettingType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select --</option>
+                        <option value="apiConfig">Edit API Configuration settings</option>
+                    </select>
+
+                    <div id="editApiConfigSection" class="mt-4 p-4 border border-gray-200 rounded-md shadow-sm hidden">
+                        <h5 class="text-md font-medium text-gray-700 mb-3">API Configuration</h5>
+                        <div>
+                            <label for="editApiName" class="block text-sm font-medium text-gray-700 mb-1">Name of API</label>
+                            <input type="text" id="editApiName" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Salesforce API">
+                        </div>
+                        <label for="editLoginType" class="block text-sm font-medium text-gray-700 mb-1 mt-3">Login Type</label>
+                        <select id="editLoginType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3">
+                            <option value="">-- Select --</option>
+                            <option value="API">API</option>
+                            <option value="UsernamePassword">Username and Password</option>
+                        </select>
+
+                        <div id="editApiKeySection" class="hidden">
+                            <label for="editApiKey" class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="editApiKey" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter API Key">
+                                <button type="button" id="editVerifyApiKeyBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Verify</button>
+                            </div>
+                            <p id="editApiKeyStatus" class="mt-2 text-sm font-medium"></p>
+                        </div>
+
+                        <div id="editUsernamePasswordSection" class="hidden">
+                            <label for="editUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input type="text" id="editUsername" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3" placeholder="Enter Username">
+                            <label for="editPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input type="password" id="editPassword" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter Password">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Knowledge Base Settings -->
+                <div>
+                    <h4 class="text-lg font-medium text-gray-700 mb-3">Knowledge Base Settings</h4>
+                    <label for="editKnowledgeBaseSelect" class="block text-sm font-medium text-gray-700 mb-1">Select Knowledge Base</label>
+                    <select id="editKnowledgeBaseSelect" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select --</option>
+                        <option value="Github">Github</option>
+                        <option value="Gitlab">Gitlab</option>
+                        <option value="Bitbucket">Bitbucket</option>
+                    </select>
+
+                    <div id="editKnowledgeBaseDetails" class="mt-4 p-4 border border-gray-200 rounded-md shadow-sm hidden">
+                        <h5 class="text-md font-medium text-gray-700 mb-3">Knowledge Base Configuration</h5>
+                        <div>
+                            <label for="editKbUrl" class="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                            <input type="url" id="editKbUrl" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., https://api.github.com">
+                        </div>
+                        <label for="editKbAuthType" class="block text-sm font-medium text-gray-700 mb-1 mt-3">Authentication Type</label>
+                        <select id="editKbAuthType" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3">
+                            <option value="">-- Select --</option>
+                            <option value="APIToken">API Token</option>
+                            <option value="UsernamePassword">Username and Password</option>
+                        </select>
+
+                        <div id="editKbApiTokenSection" class="hidden">
+                            <label for="editKbApiToken" class="block text-sm font-medium text-gray-700 mb-1">API Token</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="text" id="editKbApiToken" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter API Token">
+                                <button type="button" id="editVerifyKbTokenBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">Verify</button>
+                            </div>
+                            <p id="editKbTokenStatus" class="mt-2 text-sm font-medium"></p>
+                        </div>
+
+                        <div id="editKbUsernamePasswordSection" class="hidden">
+                            <label for="editKbUsername" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input type="text" id="editKbUsername" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 mb-3" placeholder="Enter Username">
+                            <label for="editKbPassword" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input type="password" id="editKbPassword" class="w-full p-3 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Enter Password">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="cancelEditUserBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // Array to store user data (simulated database)
+        let users = [
+            {
+                id: 1,
+                name: "Alice Smith",
+                email: "alice.s@example.com",
+                designation: "Admin",
+                permissions: { user_read: true, user_create: true, user_update: true, user_delete: true },
+                generalSettings: { apiConfig: { name: "Salesforce API", loginType: "API", apiKey: "sk_12345" } },
+                knowledgeBase: { type: "Github", url: "https://api.github.com", auth: { type: "APIToken", token: "ghp_abcde" } }
+            },
+            {
+                id: 2,
+                name: "Bob Johnson",
+                email: "bob.j@example.com",
+                designation: "User Manager",
+                permissions: { user_read: true, user_create: true },
+                generalSettings: {},
+                knowledgeBase: { type: "Gitlab", url: "https://gitlab.com/api/v4", auth: { type: "UsernamePassword", username: "bob_gitlab", password: "password123" } }
+            },
+            {
+                id: 3,
+                name: "Charlie Brown",
+                email: "charlie.b@example.com",
+                designation: "Developer",
+                permissions: {},
+                generalSettings: {},
+                knowledgeBase: { type: "Bitbucket", url: "https://api.bitbucket.org/2.0", auth: { type: "APIToken", token: "bb_fghij" } }
+            }
+        ];
+        let nextUserId = users.length + 1; // For assigning unique IDs to new users
+
+        // Get DOM elements for Create User Dialog
+        const createUserBtn = document.getElementById('createUserBtn');
+        const createUserDialog = document.getElementById('createUserDialog');
+        const cancelCreateUserBtn = document.getElementById('cancelCreateUserBtn');
+        const createUserForm = document.getElementById('createUserForm');
+        const userTableBody = document.getElementById('userTableBody');
+
+        const userTypeSelect = document.getElementById('userType');
+        const permissionSettingsDiv = document.getElementById('permissionSettings');
+        const generalSettingTypeSelect = document.getElementById('generalSettingType');
+        const apiConfigSection = document.getElementById('apiConfigSection');
+        const apiNameInput = document.getElementById('apiName');
+        const loginTypeSelect = document.getElementById('loginType');
+        const apiKeySection = document.getElementById('apiKeySection');
+        const usernamePasswordSection = document.getElementById('usernamePasswordSection');
+        const verifyApiKeyBtn = document.getElementById('verifyApiKeyBtn');
+        const apiKeyStatus = document.getElementById('apiKeyStatus');
+        const knowledgeBaseSelect = document.getElementById('knowledgeBaseSelect');
+        const knowledgeBaseDetails = document.getElementById('knowledgeBaseDetails'); // New
+        const kbUrlInput = document.getElementById('kbUrl'); // New
+        const kbAuthTypeSelect = document.getElementById('kbAuthType'); // New
+        const kbApiTokenSection = document.getElementById('kbApiTokenSection'); // New
+        const kbApiTokenInput = document.getElementById('kbApiToken'); // New
+        const verifyKbTokenBtn = document.getElementById('verifyKbTokenBtn'); // New
+        const kbTokenStatus = document.getElementById('kbTokenStatus'); // New
+        const kbUsernamePasswordSection = document.getElementById('kbUsernamePasswordSection'); // New
+        const kbUsernameInput = document.getElementById('kbUsername'); // New
+        const kbPasswordInput = document.getElementById('kbPassword'); // New
+
+
+        // Get DOM elements for Edit User Dialog
+        const editUserDialog = document.getElementById('editUserDialog');
+        const cancelEditUserBtn = document.getElementById('cancelEditUserBtn');
+        const editUserForm = document.getElementById('editUserForm');
+        const editingUserNameSpan = document.getElementById('editingUserName');
+        const editGeneralSettingTypeSelect = document.getElementById('editGeneralSettingType');
+        const editApiConfigSection = document.getElementById('editApiConfigSection');
+        const editApiNameInput = document.getElementById('editApiName');
+        const editLoginTypeSelect = document.getElementById('editLoginType');
+        const editApiKeySection = document.getElementById('editApiKeySection');
+        const editUsernamePasswordSection = document.getElementById('editUsernamePasswordSection');
+        const editVerifyApiKeyBtn = document.getElementById('editVerifyApiKeyBtn');
+        const editApiKeyStatus = document.getElementById('editApiKeyStatus');
+        const editKnowledgeBaseSelect = document.getElementById('editKnowledgeBaseSelect');
+        const editKnowledgeBaseDetails = document.getElementById('editKnowledgeBaseDetails'); // New
+        const editKbUrlInput = document.getElementById('editKbUrl'); // New
+        const editKbAuthTypeSelect = document.getElementById('editKbAuthType'); // New
+        const editKbApiTokenSection = document.getElementById('editKbApiTokenSection'); // New
+        const editKbApiTokenInput = document.getElementById('editKbApiToken'); // New
+        const editVerifyKbTokenBtn = document.getElementById('editVerifyKbTokenBtn'); // New
+        const editKbTokenStatus = document.getElementById('editKbTokenStatus'); // New
+        const editKbUsernamePasswordSection = document.getElementById('editKbUsernamePasswordSection'); // New
+        const editKbUsernameInput = document.getElementById('editKbUsername'); // New
+        const editKbPasswordInput = document.getElementById('editKbPassword'); // New
+
+        let currentUserBeingEdited = null; // To store the user object when editing
+
+        // Function to render/re-render the user table
+        function renderUserTable() {
+            userTableBody.innerHTML = ''; // Clear existing rows
+            users.forEach(user => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition duration-150 ease-in-out';
+                row.innerHTML = `
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-800">${user.name}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-600">${user.email}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm text-gray-600">${user.designation}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-sm">
+                        <button data-user-id="${user.id}" class="edit-user-btn bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-md shadow-sm transition duration-300 ease-in-out transform hover:scale-105">
+                            Edit Permissions
+                        </button>
+                    </td>
+                `;
+                userTableBody.appendChild(row);
+            });
+
+            // Attach event listeners to new edit buttons
+            document.querySelectorAll('.edit-user-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const userId = parseInt(event.target.dataset.userId);
+                    openEditUserDialog(userId);
+                });
+            });
+        }
+
+        // Function to open a dialog
+        function openDialog(dialogElement) {
+            dialogElement.classList.add('active');
+        }
+
+        // Function to close a dialog
+        function closeDialog(dialogElement) {
+            dialogElement.classList.remove('active');
+            // Reset form fields when closing create user dialog
+            if (dialogElement.id === 'createUserDialog') {
+                createUserForm.reset();
+                permissionSettingsDiv.classList.add('hidden'); // Hide permissions section
+                apiConfigSection.classList.add('hidden'); // Hide API config
+                apiKeySection.classList.add('hidden'); // Hide API key input
+                usernamePasswordSection.classList.add('hidden'); // Hide username/password
+                apiKeyStatus.textContent = ''; // Clear status
+                apiKeyStatus.className = 'mt-2 text-sm font-medium'; // Reset class
+                apiNameInput.value = ''; // Reset API Name
+                knowledgeBaseSelect.value = ''; // Reset Knowledge Base
+                knowledgeBaseDetails.classList.add('hidden'); // Hide KB details
+                kbUrlInput.value = ''; // Reset KB URL
+                kbAuthTypeSelect.value = ''; // Reset KB Auth Type
+                kbApiTokenSection.classList.add('hidden'); // Hide KB API Token
+                kbUsernamePasswordSection.classList.add('hidden'); // Hide KB Username/Password
+                kbTokenStatus.textContent = ''; // Clear KB token status
+                kbTokenStatus.className = 'mt-2 text-sm font-medium'; // Reset KB token class
+            }
+            // Reset form fields when closing edit user dialog
+            if (dialogElement.id === 'editUserDialog') {
+                editUserForm.reset();
+                editApiConfigSection.classList.add('hidden');
+                editApiKeySection.classList.add('hidden');
+                editUsernamePasswordSection.classList.add('hidden');
+                editApiKeyStatus.textContent = '';
+                editApiKeyStatus.className = 'mt-2 text-sm font-medium';
+                editApiNameInput.value = ''; // Reset API Name
+                editKnowledgeBaseSelect.value = ''; // Reset Knowledge Base
+                editKnowledgeBaseDetails.classList.add('hidden'); // Hide KB details
+                editKbUrlInput.value = ''; // Reset KB URL
+                editKbAuthTypeSelect.value = ''; // Reset KB Auth Type
+                editKbApiTokenSection.classList.add('hidden'); // Hide KB API Token
+                editKbUsernamePasswordSection.classList.add('hidden'); // Hide KB Username/Password
+                editKbTokenStatus.textContent = ''; // Clear KB token status
+                editKbTokenStatus.className = 'mt-2 text-sm font-medium'; // Reset KB token class
+            }
+        }
+
+        // Event listener for "Create User +" button
+        createUserBtn.addEventListener('click', () => {
+            openDialog(createUserDialog);
+        });
+
+        // Event listener for "Cancel" button in Create User dialog
+        cancelCreateUserBtn.addEventListener('click', () => {
+            closeDialog(createUserDialog);
+        });
+
+        // Event listener for "Cancel" button in Edit User dialog
+        cancelEditUserBtn.addEventListener('click', () => {
+            closeDialog(editUserDialog);
+        });
+
+        // Event listener for user type selection in Create User dialog
+        userTypeSelect.addEventListener('change', (event) => {
+            if (event.target.value === 'Admin' || event.target.value === 'UserManager') {
+                permissionSettingsDiv.classList.remove('hidden');
+            } else {
+                permissionSettingsDiv.classList.add('hidden');
+            }
+        });
+
+        // Event listener for general setting type selection in Create User dialog
+        generalSettingTypeSelect.addEventListener('change', (event) => {
+            if (event.target.value === 'apiConfig') {
+                apiConfigSection.classList.remove('hidden');
+                loginTypeSelect.value = ''; // Reset login type
+                apiKeySection.classList.add('hidden');
+                usernamePasswordSection.classList.add('hidden');
+                apiKeyStatus.textContent = '';
+                apiKeyStatus.className = 'mt-2 text-sm font-medium';
+            } else {
+                apiConfigSection.classList.add('hidden');
+            }
+        });
+
+        // Event listener for login type selection in Create User dialog
+        loginTypeSelect.addEventListener('change', (event) => {
+            apiKeySection.classList.add('hidden');
+            usernamePasswordSection.classList.add('hidden');
+            apiKeyStatus.textContent = '';
+            apiKeyStatus.className = 'mt-2 text-sm font-medium';
+
+            if (event.target.value === 'API') {
+                apiKeySection.classList.remove('hidden');
+            } else if (event.target.value === 'UsernamePassword') {
+                usernamePasswordSection.classList.remove('hidden');
+            }
+        });
+
+        // Event listener for API Key verification in Create User dialog
+        verifyApiKeyBtn.addEventListener('click', () => {
+            const apiKey = document.getElementById('apiKey').value;
+            if (apiKey.trim() !== '') {
+                apiKeyStatus.textContent = 'Verified!';
+                apiKeyStatus.className = 'mt-2 text-sm font-medium text-green-600';
+            } else {
+                apiKeyStatus.textContent = 'Please enter an API key.';
+                apiKeyStatus.className = 'mt-2 text-sm font-medium text-red-600';
+            }
+        });
+
+        // Event listener for Knowledge Base selection in Create User dialog
+        knowledgeBaseSelect.addEventListener('change', (event) => {
+            if (event.target.value !== '') {
+                knowledgeBaseDetails.classList.remove('hidden');
+                kbUrlInput.value = ''; // Clear previous URL
+                kbAuthTypeSelect.value = ''; // Clear previous auth type
+                kbApiTokenSection.classList.add('hidden');
+                kbUsernamePasswordSection.classList.add('hidden');
+                kbTokenStatus.textContent = '';
+                kbTokenStatus.className = 'mt-2 text-sm font-medium';
+            } else {
+                knowledgeBaseDetails.classList.add('hidden');
+            }
+        });
+
+        // Event listener for Knowledge Base Authentication Type selection in Create User dialog
+        kbAuthTypeSelect.addEventListener('change', (event) => {
+            kbApiTokenSection.classList.add('hidden');
+            kbUsernamePasswordSection.classList.add('hidden');
+            kbTokenStatus.textContent = '';
+            kbTokenStatus.className = 'mt-2 text-sm font-medium';
+
+            if (event.target.value === 'APIToken') {
+                kbApiTokenSection.classList.remove('hidden');
+            } else if (event.target.value === 'UsernamePassword') {
+                kbUsernamePasswordSection.classList.remove('hidden');
+            }
+        });
+
+        // Event listener for Knowledge Base API Token verification in Create User dialog
+        verifyKbTokenBtn.addEventListener('click', () => {
+            const kbApiToken = kbApiTokenInput.value;
+            if (kbApiToken.trim() !== '') {
+                kbTokenStatus.textContent = 'Verified!';
+                kbTokenStatus.className = 'mt-2 text-sm font-medium text-green-600';
+            } else {
+                kbTokenStatus.textContent = 'Please enter an API token.';
+                kbTokenStatus.className = 'mt-2 text-sm font-medium text-red-600';
+            }
+        });
+
+
+        // Event listener for "Create User" form submission
+        createUserForm.addEventListener('submit', (event) => {
+            event.preventDefault(); // Prevent default form submission
+
+            const userName = document.getElementById('userName').value;
+            const userEmail = document.getElementById('userEmail').value;
+            const userDesignation = document.getElementById('userDesignation').value;
+            const userType = document.getElementById('userType').value;
+
+            const permissions = {};
+            document.querySelectorAll('#permissionSettings input[name="permission"]:checked').forEach(checkbox => {
+                permissions[checkbox.value] = true;
+            });
+
+            const newUser = {
+                id: nextUserId++,
+                name: userName,
+                email: userEmail,
+                designation: userDesignation,
+                userType: userType, // Store user type
+                permissions: permissions,
+                generalSettings: {}, // Initialize general settings
+                knowledgeBase: {} // Initialize knowledge base settings
+            };
+
+            // Capture API config if selected
+            if (generalSettingTypeSelect.value === 'apiConfig') {
+                newUser.generalSettings.apiConfig = {
+                    name: apiNameInput.value,
+                    loginType: loginTypeSelect.value
+                };
+                if (loginTypeSelect.value === 'API') {
+                    newUser.generalSettings.apiConfig.apiKey = document.getElementById('apiKey').value;
+                } else if (loginTypeSelect.value === 'UsernamePassword') {
+                    newUser.generalSettings.apiConfig.username = document.getElementById('username').value;
+                    newUser.generalSettings.apiConfig.password = document.getElementById('password').value;
+                }
+            }
+
+            // Capture Knowledge Base settings if selected
+            if (knowledgeBaseSelect.value !== '') {
+                newUser.knowledgeBase.type = knowledgeBaseSelect.value;
+                newUser.knowledgeBase.url = kbUrlInput.value;
+                newUser.knowledgeBase.auth = { type: kbAuthTypeSelect.value };
+                if (kbAuthTypeSelect.value === 'APIToken') {
+                    newUser.knowledgeBase.auth.token = kbApiTokenInput.value;
+                } else if (kbAuthTypeSelect.value === 'UsernamePassword') {
+                    newUser.knowledgeBase.auth.username = kbUsernameInput.value;
+                    newUser.knowledgeBase.auth.password = kbPasswordInput.value;
+                }
+            }
+
+
+            users.push(newUser); // Add new user to our array
+            renderUserTable(); // Re-render the table to show the new user
+
+            console.log('New User Created:', newUser); // Log to console for demonstration
+            closeDialog(createUserDialog); // Close the dialog
+        });
+
+        // Function to open the Edit User dialog and pre-fill permissions
+        function openEditUserDialog(userId) {
+            currentUserBeingEdited = users.find(user => user.id === userId);
+            if (!currentUserBeingEdited) {
+                console.error('User not found for editing:', userId);
+                return;
+            }
+
+            editingUserNameSpan.textContent = currentUserBeingEdited.name;
+
+            // Reset all checkboxes first
+            document.querySelectorAll('#editUserForm input[name="edit_permission"]').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            // Set checkboxes based on current user's permissions
+            for (const perm in currentUserBeingEdited.permissions) {
+                const checkbox = document.querySelector(`#editUserForm input[name="edit_permission"][value="${perm}"]`);
+                if (checkbox) {
+                    checkbox.checked = currentUserBeingEdited.permissions[perm];
+                }
+            }
+
+            // Reset and hide API/Username sections for editing
+            editGeneralSettingTypeSelect.value = '';
+            editApiConfigSection.classList.add('hidden');
+            editLoginTypeSelect.value = '';
+            editApiKeySection.classList.add('hidden');
+            editUsernamePasswordSection.classList.add('hidden');
+            editApiKeyStatus.textContent = '';
+            editApiKeyStatus.className = 'mt-2 text-sm font-medium';
+            editApiNameInput.value = ''; // Reset API Name
+
+            // Pre-fill General Settings (API Config)
+            if (currentUserBeingEdited.generalSettings && currentUserBeingEdited.generalSettings.apiConfig) {
+                editGeneralSettingTypeSelect.value = 'apiConfig';
+                editApiConfigSection.classList.remove('hidden');
+                editApiNameInput.value = currentUserBeingEdited.generalSettings.apiConfig.name || '';
+                editLoginTypeSelect.value = currentUserBeingEdited.generalSettings.apiConfig.loginType || '';
+
+                if (currentUserBeingEdited.generalSettings.apiConfig.loginType === 'API') {
+                    editApiKeySection.classList.remove('hidden');
+                    document.getElementById('editApiKey').value = currentUserBeingEdited.generalSettings.apiConfig.apiKey || '';
+                } else if (currentUserBeingEdited.generalSettings.apiConfig.loginType === 'UsernamePassword') {
+                    editUsernamePasswordSection.classList.remove('hidden');
+                    document.getElementById('editUsername').value = currentUserBeingEdited.generalSettings.apiConfig.username || '';
+                    document.getElementById('editPassword').value = currentUserBeingEdited.generalSettings.apiConfig.password || '';
+                }
+            }
+
+            // Pre-fill Knowledge Base
+            editKnowledgeBaseSelect.value = currentUserBeingEdited.knowledgeBase.type || '';
+            if (currentUserBeingEdited.knowledgeBase.type) {
+                editKnowledgeBaseDetails.classList.remove('hidden');
+                editKbUrlInput.value = currentUserBeingEdited.knowledgeBase.url || '';
+                editKbAuthTypeSelect.value = currentUserBeingEdited.knowledgeBase.auth?.type || '';
+
+                if (currentUserBeingEdited.knowledgeBase.auth?.type === 'APIToken') {
+                    editKbApiTokenSection.classList.remove('hidden');
+                    editKbApiTokenInput.value = currentUserBeingEdited.knowledgeBase.auth.token || '';
+                } else if (currentUserBeingEdited.knowledgeBase.auth?.type === 'UsernamePassword') {
+                    editKbUsernamePasswordSection.classList.remove('hidden');
+                    editKbUsernameInput.value = currentUserBeingEdited.knowledgeBase.auth.username || '';
+                    editKbPasswordInput.value = currentUserBeingEdited.knowledgeBase.auth.password || '';
+                }
+            } else {
+                editKnowledgeBaseDetails.classList.add('hidden');
+            }
+
+            openDialog(editUserDialog);
+        }
+
+        // Event listener for general setting type selection in Edit User dialog
+        editGeneralSettingTypeSelect.addEventListener('change', (event) => {
+            if (event.target.value === 'apiConfig') {
+                editApiConfigSection.classList.remove('hidden');
+                editLoginTypeSelect.value = ''; // Reset login type
+                editApiKeySection.classList.add('hidden');
+                editUsernamePasswordSection.classList.add('hidden');
+                editApiKeyStatus.textContent = '';
+                editApiKeyStatus.className = 'mt-2 text-sm font-medium';
+            } else {
+                editApiConfigSection.classList.add('hidden');
+            }
+        });
+
+        // Event listener for login type selection in Edit User dialog
+        editLoginTypeSelect.addEventListener('change', (event) => {
+            editApiKeySection.classList.add('hidden');
+            editUsernamePasswordSection.classList.add('hidden');
+            editApiKeyStatus.textContent = '';
+            editApiKeyStatus.className = 'mt-2 text-sm font-medium';
+
+            if (event.target.value === 'API') {
+                editApiKeySection.classList.remove('hidden');
+            } else if (event.target.value === 'UsernamePassword') {
+                editUsernamePasswordSection.classList.remove('hidden');
+            }
+        });
+
+        // Event listener for API Key verification in Edit User dialog
+        editVerifyApiKeyBtn.addEventListener('click', () => {
+            const apiKey = document.getElementById('editApiKey').value;
+            if (apiKey.trim() !== '') {
+                editApiKeyStatus.textContent = 'Verified!';
+                editApiKeyStatus.className = 'mt-2 text-sm font-medium text-green-600';
+            } else {
+                editApiKeyStatus.textContent = 'Please enter an API key.';
+                editApiKeyStatus.className = 'mt-2 text-sm font-medium text-red-600';
+            }
+        });
+
+        // Event listener for Knowledge Base selection in Edit User dialog
+        editKnowledgeBaseSelect.addEventListener('change', (event) => {
+            if (event.target.value !== '') {
+                editKnowledgeBaseDetails.classList.remove('hidden');
+                editKbUrlInput.value = ''; // Clear previous URL
+                editKbAuthTypeSelect.value = ''; // Clear previous auth type
+                editKbApiTokenSection.classList.add('hidden');
+                editKbUsernamePasswordSection.classList.add('hidden');
+                editKbTokenStatus.textContent = '';
+                editKbTokenStatus.className = 'mt-2 text-sm font-medium';
+            } else {
+                editKnowledgeBaseDetails.classList.add('hidden');
+            }
+        });
+
+        // Event listener for Knowledge Base Authentication Type selection in Edit User dialog
+        editKbAuthTypeSelect.addEventListener('change', (event) => {
+            editKbApiTokenSection.classList.add('hidden');
+            editKbUsernamePasswordSection.classList.add('hidden');
+            editKbTokenStatus.textContent = '';
+            editKbTokenStatus.className = 'mt-2 text-sm font-medium';
+
+            if (event.target.value === 'APIToken') {
+                editKbApiTokenSection.classList.remove('hidden');
+            } else if (event.target.value === 'UsernamePassword') {
+                editKbUsernamePasswordSection.classList.remove('hidden');
+            }
+        });
+
+        // Event listener for Knowledge Base API Token verification in Edit User dialog
+        editVerifyKbTokenBtn.addEventListener('click', () => {
+            const kbApiToken = editKbApiTokenInput.value;
+            if (kbApiToken.trim() !== '') {
+                editKbTokenStatus.textContent = 'Verified!';
+                editKbTokenStatus.className = 'mt-2 text-sm font-medium text-green-600';
+            } else {
+                editKbTokenStatus.textContent = 'Please enter an API token.';
+                editKbTokenStatus.className = 'mt-2 text-sm font-medium text-red-600';
+            }
+        });
+
+        // Event listener for "Save Changes" form submission in Edit User dialog
+        editUserForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            if (currentUserBeingEdited) {
+                const updatedPermissions = {};
+                document.querySelectorAll('#editUserForm input[name="edit_permission"]:checked').forEach(checkbox => {
+                    updatedPermissions[checkbox.value] = true;
+                });
+
+                currentUserBeingEdited.permissions = updatedPermissions;
+
+                // Capture updated API config if selected
+                if (editGeneralSettingTypeSelect.value === 'apiConfig') {
+                    currentUserBeingEdited.generalSettings.apiConfig = {
+                        name: editApiNameInput.value,
+                        loginType: editLoginTypeSelect.value
+                    };
+                    if (editLoginTypeSelect.value === 'API') {
+                        currentUserBeingEdited.generalSettings.apiConfig.apiKey = document.getElementById('editApiKey').value;
+                    } else if (editLoginTypeSelect.value === 'UsernamePassword') {
+                        currentUserBeingEdited.generalSettings.apiConfig.username = document.getElementById('editUsername').value;
+                        currentUserBeingEdited.generalSettings.apiConfig.password = document.getElementById('editPassword').value;
+                    }
+                } else {
+                    currentUserBeingEdited.generalSettings = {}; // Clear if API config is not selected
+                }
+
+                // Capture updated Knowledge Base settings
+                if (editKnowledgeBaseSelect.value !== '') {
+                    currentUserBeingEdited.knowledgeBase = {
+                        type: editKnowledgeBaseSelect.value,
+                        url: editKbUrlInput.value,
+                        auth: { type: editKbAuthTypeSelect.value }
+                    };
+                    if (editKbAuthTypeSelect.value === 'APIToken') {
+                        currentUserBeingEdited.knowledgeBase.auth.token = editKbApiTokenInput.value;
+                    } else if (editKbAuthTypeSelect.value === 'UsernamePassword') {
+                        currentUserBeingEdited.knowledgeBase.auth.username = editKbUsernameInput.value;
+                        currentUserBeingEdited.knowledgeBase.auth.password = editKbPasswordInput.value;
+                    }
+                } else {
+                    currentUserBeingEdited.knowledgeBase = {}; // Clear if no KB is selected
+                }
+
+                console.log('User permissions and settings updated for:', currentUserBeingEdited.name, currentUserBeingEdited);
+                renderUserTable(); // Re-render to reflect any visual changes (though not direct for permissions)
+                closeDialog(editUserDialog);
+            }
+        });
+
+        // Initial render of the user table when the page loads
+        document.addEventListener('DOMContentLoaded', renderUserTable);
+    </script>
+</body>
+</html>
+
